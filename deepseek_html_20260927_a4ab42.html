@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактируемый калькулятор ЖКХ</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .service-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fafafa;
+            position: relative;
+        }
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        .service-title-input {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2980b9;
+            border: none;
+            background: transparent;
+            width: 60%;
+            padding: 5px;
+            border-bottom: 1px dashed #bdc3c7;
+        }
+        .service-title-input:focus {
+            outline: none;
+            border-bottom: 1px solid #2980b9;
+            background-color: #fff;
+        }
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-delete:hover {
+            background-color: #c0392b;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+        .field label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 4px;
+        }
+        .field input {
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .field .result-value {
+            padding: 6px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: right;
+            color: #2c3e50;
+        }
+        .btn-add {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .btn-add:hover {
+            background-color: #27ae60;
+        }
+        .total-block {
+            background-color: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .total-row.final {
+            font-size: 22px;
+            font-weight: bold;
+            color: #e74c3c;
+            border-top: 2px solid #bdc3c7;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .note {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Калькулятор коммунальных платежей</h2>
+
+    <div id="services-container">
+        <!-- Сюда будут добавляться услуги через JS -->
+    </div>
+
+    <button class="btn-add" onclick="addService()">+ Добавить услугу</button>
+
+    <!-- Итоги -->
+    <div class="total-block">
+        <div class="total-row">
+            <span>Итого начислено за период:</span>
+            <span id="total_accrued">0.00 руб.</span>
+        </div>
+        <div class="total-row">
+            <span>Итого оплачено:</span>
+            <span id="total_paid">0.00 руб.</span>
+        </div>
+        <div class="total-row final">
+            <span>Сумма к оплате (долг на конец):</span>
+            <span id="final_amount">0.00 руб.</span>
+        </div>
+        <div class="note">* Отрицательное значение означает переплату (аванс).</div>
+    </div>
+</div>
+
+<script>
+    // Шаблон карточки услуги
+    function createServiceCard(title = 'Новая услуга', unit = 'кВт*ч', prev = 0, curr = 0, tariff = 0, startBal = 0, paid = 0) {
+        const card = document.createElement('div');
+        card.className = 'service-card';
+        card.innerHTML = `
+            <div class="service-header">
+                <input type="text" class="service-title-input" value="${title}" placeholder="Название услуги">
+                <button class="btn-delete" onclick="this.closest('.service-card').remove(); calculateAll();">Удалить</button>
+            </div>
+            <div class="grid">
+                <div class="field">
+                    <label>Пред. показания</label>
+                    <input type="number" class="input-prev" value="${prev}" oninput="calculateService(this)">
+                </div>
+                <div class="field">
+                    <label>Тек. показания</label>
+                    <input type="number" class="input-curr" value="${curr}" oninput="calculateService(this)">
+                </div>
+                <div class="field">
+                    <label>Ед. изм.</label>
+                    <input type="text" class="input-unit" value="${unit}" style="text-align:center;">
+                </div>
+                <div class="field">
+                    <label>Тариф (руб.)</label>
+                    <input type="number" step="0.01" class="input-tariff" value="${tariff}" oninput="calculateService(this)">
+                </div>
+                <div class="field">
+                    <label>Расход</label>
+                    <div class="result-value output-usage">0</div>
+                </div>
+                <div class="field">
+                    <label>Начислено (руб.)</label>
+                    <div class="result-value output-sum">0.00</div>
+                </div>
+                <div class="field">
+                    <label>Долг/Переплата на начало</label>
+                    <input type="number" step="0.01" class="input-start-bal" value="${startBal}" oninput="calculateService(this)">
+                </div>
+                <div class="field">
+                    <label>Оплачено (руб.)</label>
+                    <input type="number" step="0.01" class="input-paid" value="${paid}" oninput="calculateService(this)">
+                </div>
+            </div>
+        `;
+        return card;
+    }
+
+    // Добавление новой услуги
+    function addService() {
+        const container = document.getElementById('services-container');
+        const newCard = createServiceCard('Новая услуга', 'ед.', 0, 0, 0, 0, 0);
+        container.appendChild(newCard);
+        calculateAll();
+    }
+
+    // Расчет для одной карточки
+    function calculateService(element) {
+        const card = element.closest('.service-card');
+        
+        const prev = parseFloat(card.querySelector('.input-prev').value) || 0;
+        const curr = parseFloat(card.querySelector('.input-curr').value) || 0;
+        const tariff = parseFloat(card.querySelector('.input-tariff').value) || 0;
+        const startBal = parseFloat(card.querySelector('.input-start-bal').value) || 0;
+        const paid = parseFloat(card.querySelector('.input-paid').value) || 0;
+
+        const usage = curr - prev;
+        const sum = usage * tariff;
+
+        // Обновляем вывод в карточке
+        card.querySelector('.output-usage').innerText = usage.toFixed(2);
+        card.querySelector('.output-sum').innerText = sum.toFixed(2);
+
+        // Пересчитываем общие итоги
+        calculateAll();
+    }
+
+    // Пересчет всех итогов
+    function calculateAll() {
+        let totalAccrued = 0;
+        let totalPaid = 0;
+        let totalEndBalance = 0;
+
+        const cards = document.querySelectorAll('.service-card');
+        
+        cards.forEach(card => {
+            const prev = parseFloat(card.querySelector('.input-prev').value) || 0;
+            const curr = parseFloat(card.querySelector('.input-curr').value) || 0;
+            const tariff = parseFloat(card.querySelector('.input-tariff').value) || 0;
+            const startBal = parseFloat(card.querySelector('.input-start-bal').value) || 0;
+            const paid = parseFloat(card.querySelector('.input-paid').value) || 0;
+
+            const usage = curr - prev;
+            const sum = usage * tariff;
+            
+            // Формула: (Долг на начало + Начислено) - Оплачено
+            const endBalance = (startBal + sum) - paid;
+
+            totalAccrued += sum;
+            totalPaid += paid;
+            totalEndBalance += endBalance;
+
+            // Обновляем вывод в карточке (на случай, если значения поменялись)
+            card.querySelector('.output-usage').innerText = usage.toFixed(2);
+            card.querySelector('.output-sum').innerText = sum.toFixed(2);
+        });
+
+        document.getElementById('total_accrued').innerText = totalAccrued.toFixed(2) + ' руб.';
+        document.getElementById('total_paid').innerText = totalPaid.toFixed(2) + ' руб.';
+        document.getElementById('final_amount').innerText = totalEndBalance.toFixed(2) + ' руб.';
+    }
+
+    // Инициализация: добавляем услуги с вашими данными
+    window.onload = function() {
+        const container = document.getElementById('services-container');
+        
+        // Электроэнергия
+        container.appendChild(createServiceCard('Электроэнергия (Д1)', 'кВт*ч', 48339, 48565, 3.49, -0.38, 789.00));
+        
+        // ХВС
+        container.appendChild(createServiceCard('Холодное водоснабжение (ХВС)', 'куб.м', 33, 38, 40.53, -684.67, 205.00));
+        
+        // Водоотведение (пример, можно удалить)
+        container.appendChild(createServiceCard('Водоотведение ХВС', 'куб.м', 0, 0, 44.54, 0, 0));
+        
+        calculateAll();
+    };
+</script>
+
+</body>
+</html>
